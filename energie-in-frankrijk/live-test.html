@@ -44,9 +44,9 @@ async function reload(){
 el('join').onclick=async()=>{
  el('join').disabled=true;msg('Aanmelden...');
  try{
-  const {data:{user},error:authError}=await supabase.auth.getUser();
-  if(authError)throw authError;
-  if(!user){const {error}=await supabase.auth.signInAnonymously();if(error)throw error;}
+  const {data:{session},error:sessionError}=await supabase.auth.getSession();
+  if(sessionError)throw sessionError;
+  if(!session){const {error}=await supabase.auth.signInAnonymously();if(error)throw error;}
   const {data,error}=await supabase.rpc('join_energy_lesson',{p_code:el('code').value.trim(),p_name:el('name').value.trim()});
   if(error)throw error;
   el('joined').textContent='Gelukt! Je test-ID: '+data;msg('Aanmelding opgeslagen in Supabase. Vraag de docent of je zichtbaar bent.');
