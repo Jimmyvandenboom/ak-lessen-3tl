@@ -12,7 +12,7 @@ function loginForm(error=""){
  H.frame('<div class="hero"><span class="eyebrow">WELKOM BIJ GFR LEARN HUB</span><h1 class="introTitle">Jouw kennis. Jouw missie.</h1><p class="lead">Een persoonlijke lesroute voor aardrijkskunde 3TL en 4TL. Je hebt alleen een lescode en je naam nodig.</p></div><div class="panel narrow" style="margin-top:20px"><span class="eyebrow">Leerling · online meedoen</span><h2>Doe mee aan de les</h2><form id="join"><label for="code">Lescode van je docent</label><input class="field" id="code" name="code" maxlength="10" required placeholder="Bijvoorbeeld A1B2C3D4" value="'+esc(code)+'"><label for="name">Jouw voornaam of klasnaam</label><input class="field" id="name" name="name" minlength="2" maxlength="35" required autocomplete="given-name" placeholder="Typ hier je naam"><button class="primary" type="submit">⚡ Naar mijn missie</button></form><div class="status '+(error?"error":"")+'" role="status" id="status">'+esc(error)+'</div></div>','student');
  $("#join").onsubmit=async e=>{
  e.preventDefault();if(busy)return;busy=true;const form=e.currentTarget;const btn=form.querySelector("button");
- btn.disabled=true;const wanted=form.code.value.trim().toUpperCase(),name=form.name.value.trim();
+ btn.disabled=true;const wanted=form.querySelector("[name=code]").value.trim().toUpperCase(),name=form.querySelector("[name=name]").value.trim();
  try{notice("Je wordt aangemeld…");await H.anonymous();await H.rpc("student","gfr_join",{p_code:wanted,p_name:name});setCode(wanted);await refresh(true);startPolling();}
  catch(err){notice("Aanmelden lukt nog niet: "+err.message,true);btn.disabled=false}finally{busy=false}
  };
@@ -103,9 +103,9 @@ function lessonScreen(){
  }
  if(phase===5)return reflectionScreen();
  const list=answerList(phase);
- if(phaseSeen!==phase){phaseSeen=phase;cursor[phase]=Math.max(0,list.findIndex(q=>!data.answers[q.id]));}
+ if(phaseSeen!==phase){phaseSeen=phase;const missing=list.findIndex(q=>!data.answers[q.id]);cursor[phase]=missing<0?list.length:missing;}
  let ix=Math.min(Math.max(cursor[phase]||0,0),Math.max(list.length-1,0)),q=list[ix];
- if(!q||list.every(q=>data.answers[q.id])&&ix>=list.length){
+ if(!q||cursor[phase]>=list.length){
   shell(drawIntro(phase)+'<div class="panel" style="margin-top:18px"><span class="eyebrow">RONDE AFGEROND</span><h2>Goed gewerkt! ✅</h2><p>Je hebt alle opdrachten voor deze fase gemaakt. Wacht tot je docent de volgende ronde start.</p></div>'+H.waitTask(c,phase));return;
  }
  let before=drawIntro(phase);
