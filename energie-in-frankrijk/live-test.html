@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Energie in Frankrijk | Live verbindingstest</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,Arial;background:#081329;color:#e7f3ff}*{box-sizing:border-box}
+body{max-width:850px;margin:3rem auto;padding:0 1rem}h1{font-size:clamp(1.8rem,5vw,3rem)}
+p{color:#aabbd4;line-height:1.6}.panel{background:#112443;border:1px solid #375179;padding:1.4rem;border-radius:18px;margin:1rem 0}
+input,button{padding:.85rem;border-radius:10px;font:inherit;margin:.25rem 0;max-width:100%}
+input{background:#09152d;border:1px solid #637b9f;color:white;display:block;width:100%}
+button{background:#36aee8;color:#05142c;font-weight:700;border:0;cursor:pointer}
+button:disabled{opacity:.5}a{color:#8be1ff}#message{white-space:pre-wrap;overflow-wrap:anywhere}
+.ok{color:#73e5af}.bad{color:#ffb49b}.pill{display:inline-block;background:#1f3b61;border-radius:999px;padding:.3rem .7rem}
+small{color:#adc0d9}.muted{color:#b6c8df}li{padding:.4rem}
+</style></head>
+<body><p class="pill">GFR · 3TL · Verbindingstest (niet de volledige les)</p><h1>⚡ Energie in Frankrijk</h1>
+<p>Deze pagina controleert of leerlingen met een lescode kunnen aansluiten en direct in het beveiligde docentoverzicht verschijnen. Gebruik uitsluitend verzonnen leerlingnamen.</p>
+<nav><a href="#leerling">Leerlingtest</a> · <a href="#docent">Docententest</a></nav>
+<div id="student" class="panel" hidden><h2>Leerling · test aanmelden</h2>
+<label>Lescode<input id="code" autocomplete="off" maxlength="20" placeholder="Bijv. DAA67B71"></label>
+<label>Verzonnen naam<input id="name" autocomplete="off" maxlength="40" placeholder="Testleerling 1"></label>
+<button id="join">Deelnemen</button><p id="joined"></p></div>
+<div id="teacher" class="panel" hidden><h2>Docent · live overzicht</h2>
+<div id="login"><label>E-mailadres<input id="email" type="email" autocomplete="username" value="bom@mariscollege.nl"></label>
+<label>Wachtwoord<input id="password" type="password" autocomplete="current-password"></label>
+<button id="signin">Inloggen als docent</button></div>
+<div id="overview" hidden><button id="refresh">Vernieuwen</button> <button id="signout">Uitloggen</button><p id="lesson"></p><h3>Testdeelnemers</h3><ol id="names"></ol><small>Automatisch bijgewerkt om de 5 seconden. Alleen docent ziet de volledige lijst.</small></div></div>
+<p id="message" role="status"></p><p><small>Dit is een technische proef. De originele v7-les, Kennisscan, punten en duoquiz zijn nog niet met deze live verbinding verbonden.</small></p>
+<script type="module">
+import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.78.0/+esm';
+const supabase=createClient('https://lcixyqpuzvpfyrxyctxc.supabase.co','sb_publishable_idWdSnjZWZbV2etfvlXbhw_eJPaJ5mx');
+const el=id=>document.getElementById(id), msg=(s,error=false)=>{el('message').textContent=s;el('message').className=error?'bad':'ok'};
+let interval=null;
+const route=()=>{const teacher=location.hash==='#docent';el('teacher').hidden=!teacher;el('student').hidden=teacher;clearInterval(interval);if(teacher)loadTeacher()};
+window.addEventListener('hashchange',route);
+async function loadTeacher(){const {data:{user}}=await supabase.auth.getUser();if(!user||user.is_anonymous){el('login').hidden=false;el('overview').hidden=true;return;}el('login').hidden=true;el('overview').hidden=false;await reload();interval=setInterval(reload,5000);}
+async function reload(){
+ const {data:lessons,error:e}=await supabase.from('energy_lessons').select('id,title,join_code,status').order('created_at',{ascending:false}).limit(1);
+ if(e){msg('Les niet beschikbaar: '+e.message,true);return;}
+ if(!lessons?.length){msg('Geen les gevonden',true);return;}
+ const l=lessons[0];el('lesson').textContent=l.title+' · code '+l.join_code+' · '+l.status;
+ const {data:students,error}=await supabase.from('energy_students').select('display_name,created_at').eq('lesson_id',l.id).order('created_at');
+ if(error){msg('Deelnemers niet beschikbaar: '+error.message,true);return;}
+ el('names').replaceChildren(...(students||[]).map(s=>{const li=document.createElement('li');li.textContent=s.display_name;return li}));
+ msg('Verbonden · '+students.length+' testdeelnemer(s)');}
+el('join').onclick=async()=>{
+ el('join').disabled=true;msg('Aanmelden...');
+ try{
+  const {data:{user},error:authError}=await supabase.auth.getUser();
+  if(authError)throw authError;
+  if(!user){const {error}=await supabase.auth.signInAnonymously();if(error)throw error;}
+  const {data,error}=await supabase.rpc('join_energy_lesson',{p_code:el('code').value.trim(),p_name:el('name').value.trim()});
+  if(error)throw error;
+  el('joined').textContent='Gelukt! Je test-ID: '+data;msg('Aanmelding opgeslagen in Supabase. Vraag de docent of je zichtbaar bent.');
+ }catch(e){msg('Aanmelden mislukt: '+e.message,true)}
+ finally{el('join').disabled=false}
+};
+el('signin').onclick=async()=>{
+ el('signin').disabled=true;msg('Docent aanmelden...');
+ const {error}=await supabase.auth.signInWithPassword({email:el('email').value.trim(),password:el('password').value});
+ el('password').value='';el('signin').disabled=false;
+ if(error){msg('Inloggen mislukt: '+error.message,true);return;}
+ msg('Docent ingelogd');loadTeacher();
+};
+el('refresh').onclick=reload;
+el('signout').onclick=async()=>{await supabase.auth.signOut();msg('Uitgelogd');loadTeacher()};
+route();
+</script></body></html>
